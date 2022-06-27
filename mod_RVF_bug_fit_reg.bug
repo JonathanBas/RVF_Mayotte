@@ -1,0 +1,54 @@
+model {
+	
+	for (z in 1:n_zones){
+	
+		for (s in 1:max_lag_ig){
+			
+			inc_true[(z - 1)*n_times + s] <- (param1[z]/sqrt(2*3.142*param3[z])) * exp(-(log(s)-param2[z])^2/(2*param3[z]))/s
+			inc_obs[(z - 1)*n_times + s] ~ dbinom(tau, round(inc_true[(z - 1)*n_times + s]))
+			igg_t[(z - 1)*n_times + s] ~ dbinom(serop_igg_pre[z], nb_test_antic[(z - 1)*n_times + s])
+		}
+		
+		for (s in (max_lag_ig + 1):n_times){
+			
+			inc_true[(z - 1)*n_times + s] <- (param1[z]/sqrt(2*3.142*param3[z])) * exp(-(log(s)-param2[z])^2/(2*param3[z]))/s
+			inc_obs[(z - 1)*n_times + s] ~ dbinom(tau, round(inc_true[(z - 1)*n_times + s]))
+			
+			dyn_igg[(z - 1)*n_times + s, 1] <- (s >= 1+param4) * inc_true[(z - 1)*n_times + 1]
+			for(i in 2:s){
+				dyn_igg[(z - 1)*n_times + s, i] <- dyn_igg[(z - 1)*n_times + s, i-1] + (s >= i+param4) * inc_true[(z - 1)*n_times + i]
+			}
+			dyn_igg_prop[(z - 1)*n_times + s] <- dyn_igg[(z - 1)*n_times + s, s] /popul[z]
+			
+			igg_t[(z - 1)*n_times + s] ~ dbinom(min(0.999, serop_igg_pre[z] + dyn_igg_prop[(z - 1)*n_times + s]), nb_test_antic[(z - 1)*n_times + s])
+		
+		}
+		
+		serop_igg_post[z] <- serop_igg_pre[z] + dyn_igg_prop[(z - 1)*n_times + n_times]
+		serop_igg_post_nb[z] <- serop_igg_post[z]*popul[z]
+
+	}
+	serop_igg_post_tot <- sum(serop_igg_post_nb)/sum(popul)
+
+	# PRIORS
+	
+	tau ~ dunif(0,1)
+	for(i in 1:n_zones){
+		serop_igg_pre[i] ~ dunif(0,1)
+		serop_igg_pre_nb[i] <- serop_igg_pre[i]*popul[i]
+	}
+	serop_igg_pre_tot <- sum(serop_igg_pre_nb)/sum(popul)
+	
+	for(i in 1:n_zones){
+		param1_log[i] ~ dunif(log(50), log(popul[i]))
+		param1[i] <- exp(param1_log[i])
+		param3[i] ~ dunif(0,1)
+		param2[i] ~ dunif(param3[i] + log(10), param3[i] + log(30))
+	}
+	param1_tot <- sum(param1)
+	
+	for(i in 1:max_lag_ig){p[i] = 1/max_lag_ig}
+	param4_plus1 ~ dcat(p[])
+	param4 <- param4_plus1 - 1
+}
+
