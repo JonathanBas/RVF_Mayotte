@@ -7,7 +7,7 @@ J. Bastard, G. A. Durand, F. Parenton, Y. Hassani, L. Dommergues, J. Paireau, N.
 
 
 
-* **data_import.R**: imports and prepares data
+* **data_import.R**: imports and prepares data (the data is aggregated by week and by geographical area in the Supplementary material SM1 of the paper)
 * **figure_1.R**: generates Figure 1 of the paper and Table S1 of the Supplementary material
 * **model_fit.R**: fits the model to the data using MCMC and performs chains diagnostic
 * **model_simul.R**: runs the model using estimated parameters and generates Figure 2 of the paper

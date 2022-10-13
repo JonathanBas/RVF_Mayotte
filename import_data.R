@@ -4,6 +4,8 @@ library("dplyr")
 library("data.table")
 library("ggplot2")
 
+thresh_antib_data = 3 # 2.5
+
 dat0 <- as.data.frame(fread(file="./data/res_mayotte_rvf_2_CSV.csv",
                             select = c("identifiant", "IPSOS_COMMUNE", "P15_AGE", "p15_INF14", "RVF IgG"),
                             header=T, sep=";", stringsAsFactors=F,na.strings = "", dec=",", encoding = "Latin-1"))
@@ -16,7 +18,7 @@ dat0$date_prev <- as.Date(dat0$date_prev, origin="1960-01-01")
 summary(dat0$date_prev)
 
 dat0$inf <- "anc"
-dat0$inf[dat0$rvf_igg <= 3] <- "neg"
+dat0$inf[dat0$rvf_igg <= thresh_antib_data] <- "neg"
 
 dat0$week <- format(dat0$date_prev, "%Y-%V")
 dat0$week <- gsub("2018-01", "2019-01", dat0$week)

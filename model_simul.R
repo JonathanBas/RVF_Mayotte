@@ -66,11 +66,12 @@ if(num_aggr == "aggr_geo1"){
   sim_inc_true_max <- apply(X=sim_inc_true, FUN=quantile, MARGIN=2, probs=0.975)
   sim_inc_true_min <- apply(X=sim_inc_true, FUN=quantile, MARGIN=2, probs=0.025)
   
-  png(filename="./res/fig_2.png",pointsize=6,res=300,width = 24, height = 20, units = "cm")
+  png(filename="./res/fig_3.png",pointsize=6,res=300,width = 24, height = 20, units = "cm")
   par(mfrow=c(2,2))
   
-  igg_obs_inf <- sapply(X=1:n_times, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, prop.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[1], NA)})
-  igg_obs_sup <- sapply(X=1:n_times, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, prop.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[2], NA)})
+  igg_obs_inf <- sapply(X=1:n_times, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, binom.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[1], NA)})
+  igg_obs_sup <- sapply(X=1:n_times, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, binom.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[2], NA)})
+  igg_obs_val <- igg_obs/nb_test_antic
   grad_x_axis <- seq(1, n_times, 4)
   
   p1 = ggplot()
@@ -97,15 +98,40 @@ if(num_aggr == "aggr_geo1"){
   
   p3 = ggplot() + theme_minimal()
   
+  ## The following code is used to cut the Y-axis between 40 and 80
+  break_inf = 40
+  break_sup = 70
+  shift_y = break_sup - break_inf
+  
+  tab_obs = data.frame(time=1:n_times, val=100*igg_obs_val, val_inf=100*igg_obs_inf, val_sup=100*igg_obs_sup, tick_inf=F, tick_sup=F)
+  val_above_break = which(tab_obs$val > break_inf)
+  valsup_above_break = which(tab_obs$val_sup > break_inf)
+  
+  tab_obs_old = tab_obs
+  
+  tab_obs$val[val_above_break] = NA
+  tab_obs$val_sup[valsup_above_break] = break_inf +4
+  tab_obs$tick_sup[valsup_above_break] = T
+  
+  tab_obs_old$val[val_above_break] = tab_obs_old$val[val_above_break] - shift_y
+  tab_obs_old$val_sup[valsup_above_break] = tab_obs_old$val_sup[valsup_above_break] - shift_y
+  tab_obs_old$val_inf[valsup_above_break] = break_inf +6
+  tab_obs_old$tick_inf[valsup_above_break] = T
+  
+  tab_obs = rbind(tab_obs, tab_obs_old[valsup_above_break,])
+  
   p4 = ggplot()
-  p4 = p4 + geom_linerange(aes(x = 1:n_times, ymin = 100*igg_obs_inf, ymax = 100*igg_obs_sup))
-  p4 = p4 + geom_point(aes(x = 1:n_times, y = 100*igg_obs/nb_test_antic, fill = tvec$used), shape=21)
+  p4 = p4 + geom_linerange(data=tab_obs, aes(x = time, ymin = val_inf, ymax = val_sup))
+  p4 = p4 + geom_linerange(data=filter(tab_obs, tick_inf), aes(xmin = time-0.7, xmax = time+0.7, y = val_inf))
+  p4 = p4 + geom_linerange(data=filter(tab_obs, tick_sup), aes(xmin = time-0.7, xmax = time+0.7, y = val_sup))
+  p4 = p4 + geom_point(data=tab_obs, aes(x = time, y = val, fill = (time %in% which(tvec$used))), shape=21)
   p4 = p4 + scale_fill_manual(values = c("TRUE"="black", "FALSE"="white"), labels = c("TRUE"="Fitting data", "FALSE"="Data not used\nfor fitting"), name=NULL)
   p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_val), size=1, col="dodgerblue4")
   p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_max), linetype="dashed", col="dodgerblue4")
   p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_min), linetype="dashed", col="dodgerblue4")
-  p4 = p4 + theme_bw() + ylim(0,40)
+  p4 = p4 + theme_bw()
   p4 = p4 + scale_x_continuous(labels = tvec$wks[grad_x_axis], breaks = grad_x_axis)
+  p4 = p4 + scale_y_continuous(labels = c(seq(0,break_inf,5), rev(seq(100,break_sup+10,-5))), breaks = c(seq(0,break_inf,5), rev(seq(100-shift_y,break_inf+10,-5))), limits = c(0,100-shift_y))
   p4 = p4 + theme(axis.text.x = element_text(angle = 90),
                   legend.position = c(0.8, 0.8),
                   legend.direction = "vertical",
@@ -187,8 +213,9 @@ if(num_aggr == "aggr_geo1"){
   for(z in 1:as.numeric(n_zones[num_aggr])){
 
     time_iter_z <- ((z - 1)*n_times+1):((z - 1)*n_times+n_times)
-    igg_obs_inf <- sapply(X=time_iter_z, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, prop.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[1], NA)})
-    igg_obs_sup <- sapply(X=time_iter_z, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, prop.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[2], NA)})
+    igg_obs_inf <- sapply(X=time_iter_z, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, binom.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[1], NA)})
+    igg_obs_sup <- sapply(X=time_iter_z, FUN = function(z_iter){ifelse(nb_test_antic[z_iter]!=0, binom.test(igg_obs[z_iter], nb_test_antic[z_iter])$conf.int[2], NA)})
+    igg_obs_val <- igg_obs[time_iter_z]/nb_test_antic[time_iter_z]
     grad_x_axis <- seq(1, n_times, 4)
     
     p1 = ggplot()
@@ -216,15 +243,40 @@ if(num_aggr == "aggr_geo1"){
     
     p3 = ggplot() + theme_minimal()
     
+    ## The following code is used to cut the Y-axis between 40 and 80
+    break_inf = 40
+    break_sup = 70
+    shift_y = break_sup - break_inf
+    
+    tab_obs = data.frame(time=1:n_times, val=100*igg_obs_val, val_inf=100*igg_obs_inf, val_sup=100*igg_obs_sup, tick_inf=F, tick_sup=F)
+    val_above_break = which(tab_obs$val > break_inf)
+    valsup_above_break = which(tab_obs$val_sup > break_inf)
+    
+    tab_obs_old = tab_obs
+    
+    tab_obs$val[val_above_break] = NA
+    tab_obs$val_sup[valsup_above_break] = break_inf +4
+    tab_obs$tick_sup[valsup_above_break] = T
+    
+    tab_obs_old$val[val_above_break] = tab_obs_old$val[val_above_break] - shift_y
+    tab_obs_old$val_sup[valsup_above_break] = tab_obs_old$val_sup[valsup_above_break] - shift_y
+    tab_obs_old$val_inf[valsup_above_break] = break_inf +6
+    tab_obs_old$tick_inf[valsup_above_break] = T
+    
+    tab_obs = rbind(tab_obs, tab_obs_old[valsup_above_break,])
+    
     p4 = ggplot()
-    p4 = p4 + geom_linerange(aes(x = 1:n_times, ymin = 100*igg_obs_inf, ymax = 100*igg_obs_sup))
-    p4 = p4 + geom_point(aes(x = 1:n_times, y = 100*igg_obs[time_iter_z]/nb_test_antic[time_iter_z], fill = tvec$used[time_iter_z]), shape=21)
+    p4 = p4 + geom_linerange(data=tab_obs, aes(x = time, ymin = val_inf, ymax = val_sup))
+    p4 = p4 + geom_linerange(data=filter(tab_obs, tick_inf), aes(xmin = time-0.7, xmax = time+0.7, y = val_inf))
+    p4 = p4 + geom_linerange(data=filter(tab_obs, tick_sup), aes(xmin = time-0.7, xmax = time+0.7, y = val_sup))
+    p4 = p4 + geom_point(data=tab_obs, aes(x = time, y = val, fill = (time %in% which(tvec$used[time_iter_z]))), shape=21)
     p4 = p4 + scale_fill_manual(values = c("TRUE"="black", "FALSE"="white"), labels = c("TRUE"="Fitting data", "FALSE"="Data not used\nfor fitting"), name=NULL)
     p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_val[[z]]), size=1, col="dodgerblue4")
     p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_max[[z]]), linetype="dashed", col="dodgerblue4")
     p4 = p4 + geom_line(aes(x = 1:n_times, y = 100*serop_igg_min[[z]]), linetype="dashed", col="dodgerblue4")
-    p4 = p4 + theme_bw() + ylim(0,40)
+    p4 = p4 + theme_bw()
     p4 = p4 + scale_x_continuous(labels = tvec$wks[time_iter_z][grad_x_axis], breaks = grad_x_axis)
+    p4 = p4 + scale_y_continuous(labels = c(seq(0,break_inf,5), rev(seq(100,break_sup+10,-5))), breaks = c(seq(0,break_inf,5), rev(seq(100-shift_y,break_inf+10,-5))), limits = c(0,100-shift_y))
     p4 = p4 + theme(axis.text.x = element_text(angle = 90),
                     legend.position = c(0.8, 0.8),
                     legend.direction = "vertical",
@@ -236,12 +288,12 @@ if(num_aggr == "aggr_geo1"){
   }
   
   p_glob = ggarrange(plotlist = p, ncol = as.numeric(n_zones[num_aggr]))
-  png(filename="./res/fig_2.png",pointsize=6,res=300,width = 12*as.numeric(n_zones[num_aggr]), height = 28, units = "cm")
+  png(filename="./res/fig_3.png",pointsize=6,res=300,width = 12*as.numeric(n_zones[num_aggr]), height = 28, units = "cm")
   plot(p_glob)
   dev.off()
   par(mfrow=c(1,1))
   
-  pdf(file="./res/fig_2.pdf", width=4.5*as.numeric(n_zones[num_aggr]), height=10)
+  pdf(file="./res/fig_3.pdf", width=5*as.numeric(n_zones[num_aggr]), height=11)
   print(p_glob)
   dev.off()
   
